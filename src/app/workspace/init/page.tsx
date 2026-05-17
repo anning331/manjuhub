@@ -44,7 +44,7 @@ export default function StoryBibleInitPage() {
     localStorage.setItem('storyBibleInit', JSON.stringify(toSave));
   }, [projectName, coreTags, targetMarket, visualPrompt, rawContent, outlineResult]);
 
-  // ---------- 推演处理（模拟 API 调用） ----------
+  
   const handleGenerateOutline = async () => {
     if (!rawContent.trim()) {
       setError('请填写原始文本内容');
@@ -53,12 +53,42 @@ export default function StoryBibleInitPage() {
     setLoading(true);
     setError('');
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      const mockOutline = `# 短剧全集大纲\n\n基于您提供的素材：\n\n## 主线剧情\n1. 开篇：${rawContent.slice(0, 50)}...\n2. 发展：冲突升级，主角觉醒。\n3. 高潮：终极对决，真相大白。\n4. 结局：和解与新生。\n\n## 人物弧光\n- 主角从迷茫到坚定\n- 配角成长线完整\n\n## 金句节拍\n> 这句话将引爆情绪。`;
-      
-      setOutlineResult(mockOutline);
-    } catch (err) {
-      setError('推演失败，请重试');
+      const res = await fetch('/api/generate-outline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: projectName,
+          background: rawContent,
+          genre: coreTags,
+          visualStyle: visualPrompt,
+          targetMarket: targetMarket,
+          episodeCount: 3,
+        }),
+      });
+  
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || '推演失败');
+  
+      const { storyConcept, characterArcs, episodes } = json.data;
+  
+      const formatted = [
+        `# 短剧全集大纲`,
+        ``,
+        `## 故事概念`,
+        storyConcept,
+        ``,
+        `## 人物弧光`,
+        characterArcs,
+        ``,
+        `## 分集规划`,
+        ...(episodes || []).map((ep: { episodeNum: number; title: string; outline: string }) =>
+          `### 第${ep.episodeNum}集：${ep.title}\n${ep.outline}`
+        ),
+      ].join('\n');
+  
+      setOutlineResult(formatted);
+    } catch (err: any) {
+      setError(err.message || '推演失败，请重试');
     } finally {
       setLoading(false);
     }
